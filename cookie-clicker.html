@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Clicker with Admin</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', Arial, sans-serif;
+            background-color: #f0e4d7;
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-image: url('https://jokiller1011.github.io/Cookie-Clicker/cookiebg.png');
+            background-size: cover;
+        }
+        #gameContainer {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+        #cookieArea {
+            flex: 1;
+            text-align: center;
+        }
+        #cookie {
+            width: 250px;
+            height: 250px;
+            background-image: url('https://jokiller1011.github.io/Cookie-Clicker/cookie.png');
+            background-size: cover;
+            border-radius: 50%;
+            cursor: pointer;
+            margin: 0 auto;
+            transition: transform 0.1s;
+        }
+        #cookie:hover {
+            transform: scale(1.05);
+        }
+        #cookie:active {
+            transform: scale(0.95);
+        }
+        #stats {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        #cps {
+            font-size: 16px;
+            color: #666;
+        }
+        #upgrades {
+            flex: 1;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .upgrade {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .upgrade:hover {
+            background-color: #f0f0f0;
+        }
+        .upgrade.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .upgrade.admin {
+            background-color: #ffeb3b;
+            border-color: #ffc107;
+        }
+        #console {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #000;
+            color: #00ff00;
+            font-family: monospace;
+            height: 100px;
+            overflow-y: scroll;
+        }
+        #adminPanel {
+            display: none;
+            background-color: #e8f5e8;
+            padding: 10px;
+            border: 1px solid #4caf50;
+            margin-top: 10px;
+        }
+        #achievements {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="cookieArea">
+            <h1>Cookie Clicker</h1>
+            <div id="stats">Cookies: <span id="cookies">0</span></div>
+            <div id="cps">Cookies per second: <span id="cookiesPerSecond">0</span></div>
+            <div id="cookie" onclick="clickCookie()"></div>
+            <div id="achievements">
+                <h3>Achievements</h3>
+                <ul id="achList"></ul>
+            </div>
+        </div>
+        <div id="upgrades">
+            <h3>Upgrades</h3>
+            <div id="upgradeList"></div>
+            <div id="adminPanel">
+                <h4>Admin Panel</h4>
+                <p>Infinite cookies activated!</p>
+                <button onclick="toggleInfinite()">Toggle Infinite Cookies</button>
+                <button onclick="unlockAllAchievements()">Unlock All Achievements</button>
+            </div>
+            <div id="console"></div>
+            <input type="text" id="cheatInput" placeholder="Enter cheat code..." onkeypress="handleCheat(event)">
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let cookies = 0;
+        let cps = 0;
+        let clickValue = 1;
+        let multiplier = 1;
+        let infinite = false;
+        let admin = false;
+
+        // Upgrades from document
+        const upgrades = [
+            { name: 'Better Oven', type: 'clicking', cost: 100, value: 1, count: 0 },
+            { name: 'Oven Mitts', type: 'clicking', cost: 500, value: 2, count: 0 },
+            { name: 'Cookie Press', type: 'clicking', cost: 2000, value: 5, count: 0 },
+            { name: 'Industrial Oven', type: 'clicking', cost: 10000, value: 10, count: 0 },
+            { name: 'Cookie Farm', type: 'production', cost: 500, value: 2, count: 0 },
+            { name: 'Cookie Factory', type: 'production', cost: 2000, value: 10, count: 0 },
+            { name: 'Cookie Universe', type: 'production', cost: 10000, value: 50, count: 0 },
+            { name: 'Quantum Bakery', type: 'production', cost: 50000, value: 100, count: 0 },
+            { name: "Grandma's Help", type: 'multiplier', cost: 1000, value: 1.5, count: 0 },
+            { name: 'Lucky Charm', type: 'multiplier', cost: 5000, value: 2, count: 0 },
+            { name: 'Time Machine', type: 'multiplier', cost: 25000, value: 3, count: 0 },
+            { name: 'Cookie God', type: 'multiplier', cost: 100000, value: 5, count: 0 }
+        ];
+
+        // Achievements
+        const achievements = [
+            { name: 'First Click', desc: 'Click your first cookie', unlocked: false, id: 0 },
+            { name: 'Cookie Novice', desc: 'Bake 100 cookies', unlocked: false, id: 1 },
+            { name: 'Cookie Master', desc: 'Bake 1000 cookies', unlocked: false, id: 2 },
+            { name: 'Grandma Friend', desc: "Buy Grandma's Help", unlocked: false, id: 3 },
+            { name: 'Click Pro', desc: 'Click 100 times', unlocked: false, id: 4 },
+            { name: 'Bakery Owner', desc: 'Buy Quantum Bakery', unlocked: false, id: 5 },
+            { name: 'Cookie Tycoon', desc: 'Bake 10000 cookies', unlocked: false, id: 6 },
+            { name: 'Godly Baker', desc: 'Buy Cookie God', unlocked: false, id: 7 }
+        ];
+
+        // Update display
+        function updateDisplay() {
+            document.getElementById('cookies').innerText = Math.floor(cookies);
+            document.getElementById('cookiesPerSecond').innerText = (cps * multiplier).toFixed(1);
+            updateUpgrades();
+            updateAchievements();
+        }
+
+        // Click cookie
+        let clickCount = 0;
+        function clickCookie() {
+            cookies += infinite ? 1000000 : clickValue * multiplier;
+            clickCount++;
+            if (!achievements[0].unlocked) unlockAchievement(0);
+            if (clickCount >= 100 && !achievements[4].unlocked) unlockAchievement(4);
+            if (cookies >= 100 && !achievements[1].unlocked) unlockAchievement(1);
+            if (cookies >= 1000 && !achievements[2].unlocked) unlockAchievement(2);
+            if (cookies >= 10000 && !achievements[6].unlocked) unlockAchievement(6);
+            updateDisplay();
+        }
+
+        // Buy upgrade
+        function buyUpgrade(id) {
+            const upgrade = upgrades[id];
+            if (cookies >= upgrade.cost || admin) {
+                if (!admin) cookies -= upgrade.cost;
+                upgrade.count++;
+                if (upgrade.type === 'clicking') {
+                    clickValue += upgrade.value;
+                } else if (upgrade.type === 'production') {
+                    cps += upgrade.value;
+                } else if (upgrade.type === 'multiplier') {
+                    multiplier *= upgrade.value;
+                }
+                upgrade.cost = Math.floor(upgrade.cost * 1.15);
+                if (upgrade.name === "Grandma's Help" && !achievements[3].unlocked) unlockAchievement(3);
+                if (upgrade.name === 'Quantum Bakery' && !achievements[5].unlocked) unlockAchievement(5);
+                if (upgrade.name === 'Cookie God' && !achievements[7].unlocked) unlockAchievement(7);
+                updateDisplay();
+            }
+        }
+
+        // Update upgrades display
+        function updateUpgrades() {
+            const list = document.getElementById('upgradeList');
+            list.innerHTML = '';
+            upgrades.forEach((upgrade, id) => {
+                const el = document.createElement('div');
+                el.className = `upgrade ${cookies < upgrade.cost && !admin ? 'disabled' : ''} ${admin ? 'admin' : ''}`;
+                el.innerHTML = `
+                    <span>${upgrade.name} (Owned: ${upgrade.count})</span>
+                    <span>Cost: ${admin ? 0 : upgrade.cost} | ${upgrade.type === 'clicking' ? `+${upgrade.value} per click` : upgrade.type === 'production' ? `+${upgrade.value} CPS` : `${upgrade.value}x production`}</span>
+                `;
+                el.onclick = () => buyUpgrade(id);
+                list.appendChild(el);
+            });
+        }
+
+        // Update achievements
+        function updateAchievements() {
+            const list = document.getElementById('achList');
+            list.innerHTML = '';
+            achievements.forEach(ach => {
+                const li = document.createElement('li');
+                li.innerHTML = ach.unlocked ? `<strong>${ach.name}</strong>: ${ach.desc}` : `<strike>${ach.name}</strike>`;
+                list.appendChild(li);
+            });
+        }
+
+        // Unlock achievement
+        function unlockAchievement(id) {
+            achievements[id].unlocked = true;
+            updateAchievements();
+        }
+
+        // Game loop for CPS
+        function gameLoop() {
+            if (!infinite) {
+                cookies += (cps * multiplier) / 10;
+            }
+            updateDisplay();
+        }
+
+        setInterval(gameLoop, 100);
+
+        // Cheat code handling
+        function handleCheat(event) {
+            if (event.key === 'Enter') {
+                const code = document.getElementById('cheatInput').value;
+                logToConsole(`Entered: ${code}`);
+                if (code === 'adrian123') {
+                    admin = true;
+                    infinite = true;
+                    cookies = Infinity;
+                    document.getElementById('adminPanel').style.display = 'block';
+                    logToConsole('Admin access granted! Infinite cookies enabled.');
+                    unlockAllAchievements();
+                    updateDisplay();
+                }
+                document.getElementById('cheatInput').value = '';
+            }
+        }
+
+        // Admin functions
+        function toggleInfinite() {
+            infinite = !infinite;
+            cookies = infinite ? Infinity : 0;
+            logToConsole(`Infinite mode: ${infinite ? 'ON' : 'OFF'}`);
+            updateDisplay();
+        }
+
+        function unlockAllAchievements() {
+            achievements.forEach(ach => ach.unlocked = true);
+            logToConsole('All achievements unlocked!');
+            updateAchievements();
+        }
+
+        // Console logging
+        function logToConsole(msg) {
+            const consoleEl = document.getElementById('console');
+            consoleEl.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Initial update
+        updateDisplay();
+    </script>
+</body>
+</html>
